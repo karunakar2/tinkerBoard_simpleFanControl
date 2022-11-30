@@ -9,14 +9,15 @@ import time
 #239 is for blue wire aka control on pin number 32, pwm3 sitting between two blacks
 ## more info at serverbiz.co.kr/product-info/?vid=55
 c_FAN = 239                 # gpio pin the fan is connected to, default #26
-c_MIN_TEMPERATURE = 45      # temperature in degrees c when fan should turn on
+c_MIN_TEMPERATURE = 50      # temperature in degrees c when fan should turn on
 c_TEMPERATURE_OFFSET = 2    # temperarute offset in degrees c when fan should turn off
 
 # Advanced configuration
-c_PWM_FREQUENCY = 50        # frequency of the pwm signal to control the fan with
+c_PWM_FREQUENCY = 100        # frequency of the pwm signal to control the fan with
 # Variables: Do not touch!
 c_TEMPERATURE_OFFSET = c_MIN_TEMPERATURE - c_TEMPERATURE_OFFSET
 last_cpu = 0        # last measured cpu temperarute
+last_gpu = 0
 desired_fan = 0        # desired fan pwm signal in %
 last_fan = 0        # last fan pwm signal in %
 
@@ -36,6 +37,13 @@ def getCPUTemp():
     f.close()
     return int(CPUTemp.replace("\n",""))/1000    # remove return from result, cast to int and divide by 1000
 
+def getGPUTemp():
+    f = open("/sys/class/thermal/thermal_zone1/temp")
+    CPUTemp = f.read()
+    f.close()
+    return int(CPUTemp.replace("\n",""))/1000    # remove return from result, cast to int and divide by 1000
+
+
 # class helping with killing signals so gpio's can be cleaned up
 class GracefulKiller:
     thread_dont_terminate = True
@@ -52,23 +60,24 @@ if __name__ == '__main__':
     while killer.thread_dont_terminate:    # main loop
       try:
         cpu = getCPUTemp()                    # get cpu temperature
-        if (cpu < c_TEMPERATURE_OFFSET):    # check if temperature is low enough to turn off
+        gpu = getGPUTemp()
+        if (cpu < c_TEMPERATURE_OFFSET and gpu < c_TEMPERATURE_OFFSET):    # check if temperature is low enough to turn off
             desired_fan = 0    # set desired fan speed to 0 aka off
-        elif (cpu > c_MIN_TEMPERATURE ):    # check if temperature exceeded the set level
-            if ((cpu >= last_cpu) and desired_fan < 100):    # check if temperature is rising or staying the same
+        elif (cpu > c_MIN_TEMPERATURE or gpu > c_MIN_TEMPERATURE ):    # check if temperature exceeded the set level
+            if ((cpu >= last_cpu or gpu >= last_gpu) and desired_fan < 100):    # check if temperature is rising or staying the same
                 if (desired_fan < 30):    # fan was off and minimum speed is 30% duty cycle
                     desired_fan = 30
                 else:    # increase speed, since we are not decreasing the temperature
                     desired_fan += 5
-            elif (cpu < last_cpu and desired_fan > 30):    # only if everything cools we can decrease the speed
+            elif ((cpu < last_cpu and gpu < last_gpu) and desired_fan > 30):    # only if everything cools we can decrease the speed
                 desired_fan -= 5
-            #print "CPU: %d HDD: %d Fan: %d RPM: %d" % (cpu, hdd, desired_fan, rpm)    # debug information
-            print("CPU: {:f} Fan: {:f}".format(cpu, desired_fan))
+        print("CPU: {:f} GPU: {:f} Fan: {:f}".format(cpu, gpu, desired_fan))
         if(desired_fan != last_fan):    # only change duty cycle when it changed
             last_fan = desired_fan
             fan.ChangeDutyCycle(desired_fan)
 
         last_cpu = cpu    # keep track of cpu temperature
+        last_gpu = gpu    # keep track of cpu temperature
         rpm = 0            # reset rpm
         time.sleep(5)    # sleep for 5 seconds
       except Exception as er:
