@@ -1,4 +1,4 @@
-# tinkerBoard_simpleFanControl
+# tinkerBoard_simpleFanControl for Rev1.2
 
 I'm late to the party.
 Got an used tinker board rev1.2 recently and had a bit of issues to start with.
