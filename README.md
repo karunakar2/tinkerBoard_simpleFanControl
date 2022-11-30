@@ -28,5 +28,6 @@ Got an used tinker board rev1.2 recently and had a bit of issues to start with.
 1. Above command might tell that it doesn't exist for root and will create one, go for it, add following line at the end of the file.
 1. @reboot python /bin/your_script.py &
 1. go for a reboot, check if it works in background.
-
+1. Fork and update, but send me a pull, happy to merge.
+1. Log issues so that others get to know if any problems exist and debug accordingly.
 1. Thanks
