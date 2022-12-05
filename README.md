@@ -30,4 +30,11 @@ Got an used tinker board rev1.2 recently and had a bit of issues to start with.
 1. go for a reboot, check if it works in background.
 1. Fork and update, but send me a pull, happy to merge.
 1. Log issues so that others get to know if any problems exist and debug accordingly.
+
+
+# Debug
+1. see simpleFan.txt file in temp
+1. use the pid to grab std info
+1. hint: Linux-specific /proc/<pid>/fd/N
+1. N is file descriptors 0, 1 and 2 to whatever they point to (normaly stdin, stdout and stderr)
 1. Thanks
