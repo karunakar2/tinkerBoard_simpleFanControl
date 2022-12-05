@@ -1,16 +1,59 @@
 #!/usr/bin/python
-import ASUS.GPIO as GPIO
 import os
 import signal
 import time
+import warnings
+
+#save the pid for later
+try:
+    #with tempfile.NamedTemporaryFile(delete=False) as file1:
+    with open('/tmp/simpleFanControl.txt','w') as file1:
+        file1.write(str(time.time()))
+        file1.write(' : ')
+        file1.write(str(os.getpid()))
+        file1.write('\n')
+except Exception as er:
+    warnings.warn(er)
+
+# notifications on linux
+notifyTitle = 'sbcFanModule'
+try:
+    from gi import require_version
+    require_version('Notify','0.7')
+    from gi.repository import Notify as notify
+    notify.init(notifyTitle)
+except ModuleNotFoundError:
+    notifyTitle = False
+    warnings.warn("can't notify with gui, keep track personally")
+
+# linux notify fuction
+def postMe(caption):
+    try:
+        if notify.is_initted() or notify.init(notifyTitle):
+            info = notify.Notification.new(notifyTitle,
+                                           caption,
+                                           'dialog-warning')
+            info.set_timeout(notify.EXPIRES_DEFAULT)
+            info.set_urgency(notify.Urgency.LOW)
+            info.show()
+    except Exception as e:
+        print(e)
+    warnings.warn(caption)
+
+try:
+    import ASUS.GPIO as GPIO
+except Exception as er:
+    warnings.warn(er)
+    postMe('Fan stopped: cant get the control')
+    raise Exception('ASUS GPIO module required')
 
 # Basic configuration
 #use 'gpio readall' on shell to get the 'CPU' to corresponding pin of interest
 #239 is for blue wire aka control on pin number 32, pwm3 sitting between two blacks
 ## more info at serverbiz.co.kr/product-info/?vid=55
 c_FAN = 239                 # gpio pin the fan is connected to, default #26
-c_MIN_TEMPERATURE = 50      # temperature in degrees c when fan should turn on
-c_TEMPERATURE_OFFSET = 2    # temperarute offset in degrees c when fan should turn off
+c_MIN_TEMPERATURE = 60      # temperature in degrees c when fan should turn on
+c_TEMPERATURE_OFFSET = 5    # temperarute offset in degrees c when fan should turn off
 
 # Advanced configuration
 c_PWM_FREQUENCY = 100        # frequency of the pwm signal to control the fan with
@@ -21,14 +64,18 @@ last_gpu = 0
 desired_fan = 0        # desired fan pwm signal in %
 last_fan = 0        # last fan pwm signal in %
 
-# Select pin reference
-GPIO.setmode(GPIO.ASUS)
-# Declare fan pin as output
-GPIO.setup(c_FAN, GPIO.OUT)
-# Setup pwm on fan pin
-fan = GPIO.PWM(c_FAN, c_PWM_FREQUENCY)
-# Setup fan pwm to start with 0 % duty cycle
-fan.start(0)
+try:
+    # Select pin reference
+    GPIO.setmode(GPIO.ASUS)
+    # Declare fan pin as output
+    GPIO.setup(c_FAN, GPIO.OUT)
+    # Setup pwm on fan pin
+    fan = GPIO.PWM(c_FAN, c_PWM_FREQUENCY)
+    # Setup fan pwm to start with 0 % duty cycle
+    fan.start(0)
+except Exception as er:
+    print(er)
+    postMe('Root permissions required')
 
 # function to get the cpu temperarute
 def getCPUTemp():
@@ -52,6 +99,7 @@ class GracefulKiller:
         signal.signal(signal.SIGTERM, self.exit_gracefully)
 
     def exit_gracefully(self, signum, frame):
+        postMe('Fan stopped: system requested termination')
         self.thread_dont_terminate = False
 
 # main function
@@ -78,10 +126,18 @@ if __name__ == '__main__':
 
         last_cpu = cpu    # keep track of cpu temperature
         last_gpu = gpu    # keep track of cpu temperature
-        rpm = 0            # reset rpm
         time.sleep(5)    # sleep for 5 seconds
       except Exception as er:
-        print(er)
+        warnings.warn(er)
         break
-    GPIO.cleanup()    # cleanup gpio's
-    print ("Fancontrol: Stopping fancontrol") # print exit message
+    try:
+        GPIO.cleanup()    # cleanup gpio's
+    except Exception as er:
+        warnings.warn("can't tidy GPIO")
+        warnings.warn(er)
+
+    if notifyTitle:
+        postMe('Fan stopped: start manually from /bin/simpleFanControl.py')
+        time.sleep(3)
+        notify.uninit()
+    warnings.warn("Fancontrol: Stopping fancontrol") # print exit message
