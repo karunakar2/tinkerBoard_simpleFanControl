@@ -79,15 +79,13 @@ except Exception as er:
 
 # function to get the cpu temperarute
 def getCPUTemp():
-    f = open("/sys/class/thermal/thermal_zone0/temp")
-    CPUTemp = f.read()
-    f.close()
+    with open("/sys/class/thermal/thermal_zone0/temp") as f:
+        CPUTemp = f.read()
     return int(CPUTemp.replace("\n",""))/1000    # remove return from result, cast to int and divide by 1000
 
 def getGPUTemp():
-    f = open("/sys/class/thermal/thermal_zone1/temp")
-    CPUTemp = f.read()
-    f.close()
+    with open("/sys/class/thermal/thermal_zone1/temp") as f:
+        CPUTemp = f.read()
     return int(CPUTemp.replace("\n",""))/1000    # remove return from result, cast to int and divide by 1000
 
 
